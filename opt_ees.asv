@@ -1,0 +1,14 @@
+%%% EES Constraints
+
+if isempty(ees_v) == 0
+    for i=1:size(ees_v,2)
+        
+        Constraints=[Constraints
+            ees_soc(2:length(elec),i) == ees_v(10,i).*ees_soc(1:length(elec)-1,i) + ees_v(8,i).*ees_chrg(2:length(elec),i) - (1/ees_v(9,i)).*ees_dchrg(2:length(elec),i) %%%EES Energy Balance
+        ees_v(4,i)*ees_adopt(i) <= ees_soc(:,i) <= ees_v(5,i)*ees_adopt(i)
+        0 <= ees_chrg(:,i) <= ees_v(6,i)*ees_adopt(i)
+        0 <= ees_dchrg(:,i) <= ees_v(7,i)*ees_adopt(i)];
+        
+    
+    end
+end
