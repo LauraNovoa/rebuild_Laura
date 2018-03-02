@@ -17,14 +17,14 @@ analysis_now=0;
 save_now=0;
 
 %%%Bldgnum for analysis
-bldgnum=13;
-% 13 for AEC
+bldgnum=14; %(ldn) 14 for AEC_ECM % 15-min data from 01/01/2015 00:00:00 to 12/31/2015 23:45:00
+%(ldn) 13 for AEC
 
 %%% Testing new constraints (1 = yes, 0 = no)
 testing=0;
 
 %%%Moving average on building energy profile
-filtering=2;
+filtering=0;
 
 %%%Node limit for optimization
 max_nodes=100;
@@ -39,23 +39,21 @@ empty_paths=0;
 addpath_list
 %% Tech Selection 
 tech_select
-
 req_return_on=0;
 tech_payment
-
 ramp_adjust_on=1;
 dg_ramp_conversion
 
 %% Loading building data
 close all
-
+usecluster = 0; %1 for using the clustered methodology, 0 for optimizing for the entire year %(ldn)
 bldg_loader
 bldglist
 
 %% Utility Data
 utility
-
 utility_tiers
+
 %% Electricity Energy Costs
 elec_vecs
 
@@ -135,46 +133,85 @@ elseif isempty(acp_v) == 0 && save_now == 1
     save(save_name)
 end
 
-%% Optimization Results
+%% (ldn) Printing Optimization Results and System Dynamics
 pv_adopt
 dghr_adopt
 ees_adopt
+ees_kW_adopt = max(ees_chrg)*4
+
+%Calculating curtailment
+curt = (solar_15*pv_adopt)- pv_elec;
+
+x = 1:1:endpts(max(size(endpts)));
+soc = 100*(ees_soc./ees_adopt);
 
 %Plot dynamics for the entire year
 figure
-plot(pv_elec,'Color','b')
+plot(x,pv_elec,'Color','b')
+if dghr_adopt~=0;
 hold on
-plot(dghr_elec,'Color','r')
+plot(x,dghr_elec,'Color','r')
+end
 hold on
-plot(import,'Color','g')
+plot(x,import,'Color','g')
 hold on
-plot(export_grid,'Color','k')
+plot(x,export_grid,'Color','k')
 hold on
-plot(ees_chrg,'Color','c')
+[ax, h1, h2] = plotyy(x,ees_chrg,x,soc);
+ylabel(ax(2),'SOC (%)')
+legend(ax(2),'SOC (%)')
+set(h1,'Color','c')
+set(h2,'Color','m')
+set(ax, 'xtick', [])
 hold on
-plot(ees_dchrg,'Color','y')
+plot(x,ees_dchrg,'Color','y')
 hold on
-plot(bldgdata(:,2),'Color','m')
+plot(x,bldgdata(1:max(size(x)),2),'Color','r')
+hold on
 title('15-min Energy Dynamics(kWh) ') 
-ylabel('Energy [kWh]')
-legend('PV','Fuel Cell','Import','Export','BESS Charge', 'BESS Discharge','AEC Loads') 
+ylabel('Energy (kWh)')
+axis tight
 
-length= 14; %chooses number of days to plot
+if dghr_adopt~=0;
+legend('PV','Fuel Cell','Import','Export','BESS Charge', 'BESS Discharge','AEC Loads') 
+else
+legend('PV','Import','Export','BESS Charge','BESS Discharge','AEC Loads') 
+end
+
+%% (ldn) Plotting Dynamics for a given interval "dlength" 
+dlength= 10; %chooses number of days to plot
  
 figure
-plot(pv_elec(1:length*96),'Color','b')
+plot(x(1:dlength*96),pv_elec(1:dlength*96),'Color',rgb('DarkOrange'))
 hold on
-plot(dghr_elec(1:length*96),'Color','r')
+if dghr_adopt~=0;
+plot(x(1:dlength*96),dghr_elec(1:dlength*96),'Color','r')
 hold on
-plot(import(1:length*96),'Color','g')
+end
+plot(x(1:dlength*96),import(1:dlength*96),'Color','g')
 hold on
-plot(export_grid(1:length*96),'Color','k')
+plot(x(1:dlength*96),export_grid(1:dlength*96),'Color','k')
 hold on
-plot(ees_chrg(1:length*96),'Color','c')
+[ax, h1, h2] = plotyy(x(1:dlength*96),ees_chrg(1:dlength*96),x(1:dlength*96),soc(1:dlength*96));
+ylabel(ax(2),'SOC (%)')
+legend(ax(2),'SOC (%)')
+set(h1,'Color','c')
+set(h2,'Color','m')
+%set(ax, 'Visible', 'off')
 hold on
-plot(ees_dchrg(1:length*96),'Color','y')
+plot(x(1:dlength*96),ees_dchrg(1:dlength*96),'Color','y')
 hold on
-plot(bldgdata(1:length*96,2),'Color','m')
+plot(x(1:dlength*96),bldgdata(1:dlength*96,2),'Color',rgb('Indigo'))
+hold on 
+plot(x(1:dlength*96),curt(1:dlength*96),'Color', rgb('Crimson'))
 title('15-min Energy Dynaimcs(kWh) ') 
-ylabel('Energy [kWh]')
-legend('PV','Fuel Cell','Import','Export','BESS Charge', 'BESS Discharge','AEC Loads') 
+xlabel('15-min intervals')
+ylabel('Energy (kWh)')
+ylim([0 15000])
+
+if dghr_adopt~=0;
+legend('PV','Fuel Cell','Import','Export','BESS Charge', 'BESS Discharge','AEC Loads','Curtailed') 
+else
+legend('PV','Import','Export','BESS Charge','BESS Discharge','AEC Loads','Curtailed') 
+end
+

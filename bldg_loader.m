@@ -15,95 +15,133 @@ summer_weekend_start=5;
 winter_days=[43 18];
 winter_weekend_start=3;
 
-if isempty(bldgnum)==1 %%%IF empty, use the UCI Load
-    filenameholder='UCI_Campus_2012';
-    %% Load building data using clustering method
-    
-    [bldgdata]=bldgdata_cluster_filter_uci(filenameholder,summer_days,summer_weekend_start,winter_days,winter_weekend_start);
-    
-    %%%Time from building data
-    time=bldgdata(:,1);
-    
-    %%%Electrical demand - kWh
-    elec(:,1)=bldgdata(:,2)*250;
-    %%%Cooling demand - kWh
-    cooling=bldgdata(:,4)*250;
-    %%%Electricity for non-cooling
-    elec(:,2)=elec(:,1)-cooling./vc_cop;
-    %%%Heating demand - kWh
-    heating=bldgdata(:,3)*250;
-    
-    for i=1:size(elec,1)
-        for j=1:size(elec,2)
-            if elec(i,j)<0
-                elec(i,j)=0;
-            end
-        end
-        if heating(i)<0
-            heating(i)=0;
-        end
-        if cooling(i)<0
-            cooling(i)<0;
-        end
-    end    
+filenameholder=char(bldglist(bldgnum))
 
-else  %%% If a building load is being examined other than UCI
-    filenameholder=char(bldglist(bldgnum))
-    %% Load building data using clustering method
+%% (ldn) modified to load data from entire year 
+
+%%% Loading building data
+if usecluster == 0 % Don't use clustering method and reads the ENTIRE YEAR
+    
+    xls_filename=strcat('C:\Users\ldn\Documents\MATLAB\Building Data\',filenameholder,'.xlsx')
+    [bldgdata]= xlsread(xls_filename);
+    
+    % Date and endpts information
+    % Raw MATLAB datenumber vector
+    time=bldgdata(:,1);
+    %%%Date vectors for all time stamps
+    datetimev=datevec(time);
+    %%%Determining endpoints for all months - end pt is the (last) data entry for a given month
+    counter=1;
+    for i=2:length(time)
+        if datetimev(i,2)~=datetimev(i-1,2) %looks at second colum of datevec(month)
+            endpts(counter,1)=i-1;
+            counter=counter+1;
+        end
+    end
+    endpts(counter,1) = i;
+    
+else % Load building data using clustering method
+    
     [bldgdata]=bldgdata_cluster_filter(filenameholder,summer_days,summer_weekend_start,winter_days,winter_weekend_start);
-    %%% Limiting the building data size when building/modifying parts of
-    %%% the code
-    %     bldgdata=[bldgdata(5760:5953,:)
-    %         zeros(size(bldgdata,2))];
-    %%%Time from building data
+    
+    % Date and endpts information
+    % Raw MATLAB datenumber vector
     time=bldgdata(:,1);
+    %%%Date vectors for all time stamps
+    datetimev=datevec(bldgdata(:,1));
     
-    %%%Electrical demand - kWh
-    elec(:,1)=bldgdata(:,2);
-    %%%Cooling demand - kWh
-    cooling=bldgdata(:,4);
-    %%%Electricity for non-cooling
-    elec(:,2)=elec(:,1)-cooling./vc_v(2);
-    %%%Heating demand - kWh
-    heating=bldgdata(:,3);
+ %%% Finding endpts of the months
+ %%% Determining endpoints for all months - endpt is the last data entry for a given month
+ counter=1;
+ for i=2:length(datetimev)
+     if datetimev(i,2)~=datetimev(i-1,2)
+         endpts(counter,1)=i-1;
+          if datetimev(i-1,2)>=6 && datetimev(i-1,2)<10
+              endpts(counter,2)=1;
+          else
+              endpts(counter,2)=0;
+          end
+         counter=counter+1;
+     end
+ end  
+ 
+end
+
+%%% Ajdusting building load if only electricity, or elec and cooling are included
+if size(bldgdata,2)~=4
+    bldgdata=[bldgdata zeros(size(bldgdata,1),4-size(bldgdata,2))];
+end
+   
+%%% Electrical demand (kWh)
+elec(:,1)=bldgdata(:,2);
+%%% Cooling demand (kWh)
+cooling=bldgdata(:,4);
+%%% Electricity for non-cooling
+elec(:,2)=elec(:,1)-cooling./vc_v(2);
+%%% Heating demand (kWh)
+heating=bldgdata(:,3);
+
+for i=1:size(elec,1)
+    for j=1:size(elec,2)
+        if elec(i,j)<0
+            elec(i,j)=0;
+        end
+    end
+    if heating(i)<0
+        heating(i)=0;
+    end
+    if cooling(i)<0
+        cooling(i)<0;
+    end
+end
+
+%% (ldn commented this part) 
+% %%% Cutting off last partial day
+%     for i=1:length(datetimev)
+%         j=length(datetimev)+1-i;
+%         if datetimev(j,3)~=datetimev(j-1,3)
+%             bldgdata=bldgdata(1:j-1,:);
+%             datetimev=datevec(bldgdata(:,1));
+%             break
+%         end
+%     end
+% 
+%     %%% Eliminating tail if the last date is messed up
+%     if datetimev(length(datetimev),5)>50
+%         %      datetimev=datetimev(1:length(datetimev)-1,:);
+%         bldgdata=bldgdata(1:length(datetimev)-1,:);
+%         datetimev=datevec(bldgdata(:,1));
+%     end
     
-    for i=1:size(elec,1)
-        for j=1:size(elec,2)
-            if elec(i,j)<0
-                elec(i,j)=0;
-            end
-        end
-        if heating(i)<0
-            heating(i)=0;
-        end
-        if cooling(i)<0
-            cooling(i)<0;
+%% Loading Solar Data
+
+% (ldn) using HOMER normalized TMY3 hourly solar PV otput profile 
+% hourly data from 01/01/2010 00:00:00 to 12/31/2010 23:45:00
+solar=xlsread('solar.xlsx'); 
+
+%solar=xlsread('solar_m2.xlsx');  
+
+%(ldn) produce a solar profile matching buildg_load
+if usecluster == 0
+    %%% (ldn) Converting solar profile from hourly to 15-minute
+    k=1;
+    for i=1:length(solar)
+        j=1;
+        while j<=4
+            solar_15(k,1)= solar(i)/4;
+            j=j+1;
+            k=k+1;
         end
     end
     
+else %if usecluster == 1
     
+    %%% Converting average solar power per 15 minutes to energy available per 15 minutes
+    solar=solar./4;
+    
+    %%%Trimming solar data to match the simulation length
+    solar=solar(1:endpts(length(endpts)));
 end
-
-%% Date and endpts information
-%%%Date vectors for all time stamps
-datetimev=datevec(time);
-%%%Determining endpoints for all months - end pt is the (last) data entry for a given month
-counter=1;
-for i=2:length(time)
-    if datetimev(i,2)~=datetimev(i-1,2) %looks at second colum of datevec(month) 
-        endpts(counter,1)=i-1;
-        counter=counter+1;
-    end
-end
-
-%% Loading the currently used solar data
-solar=xlsread('solar_m2.xlsx');
-%%% Converting average solar power per 15 minutes to energy available
-%%% per 15 minutes
-solar=solar./4;
-
-%%%Trimming solar data to match the simulation length
-solar=solar(1:endpts(length(endpts)));
 
 %% Moving Average Window
 filter_data=elec;
@@ -280,13 +318,13 @@ end
 cooling_max=max(cooling);
 
 %% plotting building loads
-figure
-subplot(1,3,1)
-plot(elec(:,2))
-xlim([1 length(elec)])
-subplot(1,3,2)
-plot(cooling)
-xlim([1 length(elec)])
-subplot(1,3,3)
-plot(heating)
-xlim([1 length(elec)])
+% figure
+% subplot(1,3,1)
+% plot(elec(:,2))
+% xlim([1 length(elec)])
+% subplot(1,3,2)
+% plot(cooling)
+% xlim([1 length(elec)])
+% subplot(1,3,3)
+% plot(heating)
+% xlim([1 length(elec)])

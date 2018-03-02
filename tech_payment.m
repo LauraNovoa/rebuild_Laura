@@ -2,10 +2,10 @@
 %% Financing CRAP
 interest=0.08; %%%Interest rates on any loans
 interest=nthroot(interest+1,12)-1; %Converting from annual to monthly rate for compounding interest
-period=10;%%%Length of any loans (years)
+period=10;%%%Length of any loan (years)
 equity=0.2; %%%Percent of investment made by investors
 required_return=.12; %%%Required return on equity investment
-required_return=nthroot(required_return+1,12)-1; % Converting from annual to monethly rate for compounding required return
+required_return=nthroot(required_return+1,12)-1; % Converting from annual to monthly rate for compounding required return
 equity_return=10;% Length at which equity + required return will be payed off (Years)
 
 %% Adjusting capital cost to the mthly payment
