@@ -57,18 +57,3 @@ if isempty(ac_v) == 0
     opt_ac_start=x(index_ac_start);
     opt_ac_chrg=x(index_ac_chrg);
 end
-    
-% opt_=x(
-% opt_=x(
-% opt_=x(
-% opt_=x(
-% opt_=x(  
-% 
-% 
-% 
-% opt_=x(
-% opt_=x(
-% opt_=x(
-% opt_=x(
-% opt_=x(
-% opt_=x(

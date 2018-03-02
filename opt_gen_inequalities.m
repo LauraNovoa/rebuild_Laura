@@ -37,20 +37,19 @@ if utility_exists == 1
     end
 end
 
-%% Limiting Import and Export
- 
-export_limit = 500 % kWh
-import_limit = 500 % kWh
+%% (ldn) Limiting Import and Export Constraint
 
+import_limit = 500 % kWh
 Constraints=[Constraints, import <= import_limit];
  
+export_limit = 500 % kWh
 Constraints=[Constraints, export_grid <= export_limit];
  
-%% ldn 08/02/2017
-%Limits FC to produce more than Net load = AEC load - PV - BESS_Dch
+%% (ldn) Limits FC to produce more than Net load = AEC load - PV - BESS_Dch Constraint
 
+%Using the eq below (works)
+%Constraints=[Constraints, dghr_elec <= elec(1:endpts(length(endpts)),1)];
 %Constraints=[Constraints, dghr_elec <= elec(1:endpts(length(endpts)),1) - pv_elec - ees_dchrg];
-Constraints=[Constraints, dghr_elec <= elec(1:endpts(length(endpts)),1)];
 %% Natural Gas
 for i=1:length(endpts)
     Constraints=[Constraints

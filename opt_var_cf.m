@@ -1,13 +1,12 @@
-%% Declaring devision variables and setting up cost function
+%% Declaring decision variables and setting up cost function
 yalmip('clear')
 Objective=[];
-Constraints=[];
+
 %% Utility Electricity
 if isempty(utility_exists)==0
+    %Import decision variable
     import=sdpvar(endpts(length(endpts)),1,'full');
-    
-    export_grid=sdpvar(endpts(length(endpts)),1,'full'); %Laura
-    
+    %Demand decision variables
     nontou_dc=sdpvar(length(endpts),1,'full');
     onpeak_dc=sdpvar(length(summer_month),1,'full');
     midpeak_dc=sdpvar(length(summer_month),1,'full');
@@ -16,7 +15,12 @@ if isempty(utility_exists)==0
         sum(util_mod*4*dc_nontou*nontou_dc)+...%%%nonTOU DC
         sum(util_mod*4*dc_on*onpeak_dc)+...%%%On Peak DC
         sum(util_mod*4*dc_mid*midpeak_dc);%%%Mid peak DC
+
+    %(ldn)Export decision variable
+    export_grid=sdpvar(endpts(length(endpts)),1,'full'); 
     
+    Objective=Objective+...
+        (-1)*export_grid'*export_price; %%% (ldn) Revenue from energy export
     
     index2_import=[1 endpts(length(endpts))];
     index2_nontou_dc=[max(index2_import)+1 max(index2_import)+length(endpts)];
@@ -25,6 +29,7 @@ if isempty(utility_exists)==0
         index2_mid_dc=[max(index2_on_dc)+1 max(index2_on_dc)+length(summer_month)];
     else
         index2_mid_dc=index2_nontou_dc;
+        
     end
 
 else
@@ -69,7 +74,43 @@ else
 end
 %% Adopted Technologies
 %%
-%%
+%% Solar PV
+if isempty(pv_v) == 0
+    pv_elec=sdpvar(endpts(length(endpts)),size(pv_v,2),'full'); %(kWh)
+    pv_adopt=sdpvar(1,size(pv_v,2),'full'); %(kW)
+    
+    for i=1:size(pv_v,2)
+        Objective=Objective+...
+            pv_v(3,i)*sum(pv_elec(:,i)) +... %%%O&M ($/kWh)
+            cap_mod*pv_v(1,i)*length(endpts)*pv_adopt(i); %%% Capital(Payments)($/kW/month)
+    end    
+else
+    pv_elec=zeros(endpts(length(endpts)),1);
+end
+%% Electrical Energy Storage
+if isempty(ees_v) == 0
+    %%% Adopted EES Size (kWh)
+    ees_adopt=sdpvar(1,size(ees_v,2),'full');
+    %%% EES Charging (kWh)
+    ees_chrg=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
+    %%% EES Discharging (kWh)
+    ees_dchrg=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
+    %%% EES SOC (kWh)
+    ees_soc=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
+    
+    %%%EES Cost Function Addition
+    for i=1:size(ees_v,2)
+        Objective=Objective+...
+            cap_mod*length(endpts)*ees_v(1)*ees_adopt(i)+... %%%EES Capital Investment (Payments) ($/kWh)
+            ees_v(2)*sum(ees_chrg(:,i))+... %%% EES Charging O&M ($/kWh)
+            ees_v(3)*sum(ees_dchrg(:,i)); %%% EES Discharging O&M ($/kWh)
+    end
+    
+else
+    ees_chrg=zeros(endpts(length(endpts)),1);
+    ees_dchrg=zeros(endpts(length(endpts)),1);
+end
+
 %% DGHR
 if isempty(dghr_v)==0
     
@@ -226,19 +267,6 @@ else
     ac_cool=zeros(endpts(length(endpts)),1);
 end
 
-%% Solar PV
-if isempty(pv_v) == 0
-    pv_elec=sdpvar(endpts(length(endpts)),size(pv_v,2),'full');
-    pv_adopt=sdpvar(1,size(pv_v,2),'full');
-    
-    for i=1:size(pv_v,2)
-        Objective=Objective+...
-            pv_v(3,i)*sum(pv_elec(:,i)) +... %%%PV O&M
-            cap_mod*pv_v(1,i)*length(endpts)*pv_adopt(i); %%% PV Adopt
-    end    
-else
-    pv_elec=zeros(endpts(length(endpts)),1);
-end
 %% ACp
 if isempty(acp_v) == 0
     winter_time_count=0;
@@ -284,26 +312,4 @@ if isempty(acp_v) == 0
 else
     acp_cool=zeros(endpts(length(endpts)),1);
 end
-%% Electrical Energy Storage
-if isempty(ees_v) == 0
-    %%% Adopted EES Size
-    ees_adopt=sdpvar(1,size(ees_v,2),'full');
-    %%% EES Charging
-    ees_chrg=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
-    %%% EES Discharging
-    ees_dchrg=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
-    %%% EES SOC
-    ees_soc=sdpvar(endpts(length(endpts)),size(ees_v,2),'full');
-    
-    %%%EES Cost Function Addition
-    for i=1:size(ees_v,2)
-        Objective=Objective+...
-            cap_mod*length(endpts)*ees_v(1)*ees_adopt(i)+... %%%EES Capital Investment
-            ees_v(2)*sum(ees_chrg(:,i))+... %%% EES Charging O&M
-            ees_v(3)*sum(ees_dchrg(:,i)); %%% EES Discharging O&M
-    end
-    
-else
-    ees_chrg=zeros(endpts(length(endpts)),1);
-    ees_dchrg=zeros(endpts(length(endpts)),1);
-end
+

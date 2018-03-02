@@ -10,16 +10,15 @@ time_start=datenum([2010,6,1,0,0,0]);
 xls_filename=strcat('C:\Users\ldn\Documents\MATLAB\Building Data\',filenameholder,'.xlsx')
 [bldgdata]= xlsread(xls_filename);
 
-%%%Ajdusting building load if only electricity, or elec and cooling are
-%%%included
+%%%Ajdusting building load if only electricity, or elec and cooling are included
 if size(bldgdata,2)~=4
     bldgdata=[bldgdata zeros(size(bldgdata,1),4-size(bldgdata,2))];
 end
 
-%%%Converting all building demand to kWh
-%%%Heating demand - kWh
+%%%Converting all building heat/cooling demand to kWh
+%%%Heating demand to kWh
 bldgdata(:,3)=bldgdata(:,3)*293.1;
-%%%Cooling
+%%%Cooling demand to kWh
 bldgdata(:,4)=bldgdata(:,4)*293.1;
 
 datetimev=datevec(bldgdata(:,1));
@@ -61,22 +60,20 @@ end
  day_mean=mean(day_delta);
 
  %%% Finding endpts of the months
- %%%Determining endpoints for all months - end pt is the data entry for a
- %%%month
+ %%% Determining endpoints for all months - endpt is the last data entry for a given month
  counter=1;
  for i=2:length(datetimev)
      if datetimev(i,2)~=datetimev(i-1,2)
          endpts(counter,1)=i-1;
-         %%%Summer month = 1
-         if datetimev(i-1,2)>=6 && datetimev(i-1,2)<10
-             endpts(counter,2)=1;
-             %%%Winter month = 0
-         else
-             endpts(counter,2)=0;
-         end
+          if datetimev(i-1,2)>=6 && datetimev(i-1,2)<10
+              endpts(counter,2)=1;
+          else
+              endpts(counter,2)=0;
+          end
          counter=counter+1;
      end
  end
+ 
  %%%Seperating between summer and winter months
 
  winter=[];
@@ -104,7 +101,7 @@ end
  winter_datetimev=datevec(winter(:,1));
 
  %% Summer Month 
- %%% Finding day endpts and seperating between weekday and weekends
+ %%% Finding day endpts and separating between weekday and weekends
  summer_weekday=[];
  summer_weekend=[];
  count=1;
@@ -186,8 +183,8 @@ end
      summer_time(i,1)=summer_time(i-1,1)+datenum([0,0,0,0,15,0]);
  end
  summer_clustered(:,1)=summer_time;
- %% Summer Month 
- %%% Finding day endpts and seperating between weekday and weekends
+ %% Winter Month 
+ %%% Finding day endpts and separating between weekday and weekends
  winter_weekday=[];
  winter_weekend=[];
  count=1;
@@ -280,7 +277,7 @@ weekday_length=length(y_val_winter_weekday);
  end
  
  winter_time=summer_time(1)-datenum([0,0,0,0,15,0]);
- %%%Setting date for the new fector
+ %%%Setting date for the new vector
  for i=2:size(winter_clustered,1)
      winter_time(i,1)=winter_time(i-1,1)-datenum([0,0,0,0,15,0]);
  end
